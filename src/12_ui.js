@@ -108,7 +108,10 @@ function mergeProject(p) {
   for (const g of Object.keys(en)) en[g] = Object.assign(en[g], ((p && p.enabled) || {})[g] || {});
   o.enabled = en;
   o.overrides = (p && p.overrides) || {};
-  o.locks = { tech: Object.assign({}, (p && p.locks && p.locks.tech) || {}), params: Object.assign({}, (p && p.locks && p.locks.params) || {}) };
+  o.locks = { tech: {}, params: {} };
+  // project files are untrusted: only plain keys may be locked, and only on (never a value we did not write)
+  for (const [g, on] of Object.entries((p && p.locks && p.locks.tech) || {})) if (on === true && /^[\w-]+$/.test(g)) o.locks.tech[g] = true;
+  for (const [k, on] of Object.entries((p && p.locks && p.locks.params) || {})) if (on === true && /^[\w-]+$/.test(k)) o.locks.params[k] = true;
   delete o.appVersion;
   // project files are untrusted: colours must be colours, font keys plain keys (they end up in the page's HTML / CSS)
   o.colors = { enabled: !!(p && p.colors && p.colors.enabled) };
@@ -459,7 +462,13 @@ function groupName(g, k) {
   return (tbl && tbl[k] && tbl[k].name) || k;
 }
 
-/* ---------------- ロック: おまかせ／シャッフルでも変えない ---------------- */
+/* ---------------- locks (what Randomize / Shuffle must not touch) ----------------
+   project.locks = { tech: { group: true }, params: { key: true } }
+   tech:   freezes that group's ON/OFF selection, i.e. the candidate count the panel shows (120/140, 28/28).
+           Randomize re-picks which techniques are candidates, so freezing the pool is what keeps the count —
+           this does not pin one technique in place.
+   params: freezes the current value of the effects sliders, on-twos and flash.
+   Neither goes into J.plan: they only bracket the places that rewrite the look (Randomize, mood reroll). */
 const LOCK_TITLE_ON = 'おまかせ／シャッフルで変えないようにロック';
 const TECH_LOCK_ON = 'おまかせでON／OFFを変えないようにロック';
 const LOCK_TITLE_OFF = 'ロック中。クリックで解除';
@@ -470,44 +479,57 @@ function locksOf() {
   if (!P.locks.params) P.locks.params = {};
   return P.locks;
 }
-function techGroupLabel(g) { const m = GROUPS.find(x => x[0] === g); return m ? m[1] : g; }
-// 手法タブのロック = その組の ON/OFF（＝候補数 120/140 など）をそのまま固定する。
-// おまかせ／シャッフルが選び直すのは「どの手法を候補にするか」なので、ここを固定すれば数も中身も変わらない。
+function lockOn(k) { return !!locksOf().params[k]; }
+function lockName(k) {
+  const f = FX.find(x => x[0] === k);
+  return f ? f[1] : k;
+}
+function groupLabel(g) { const m = GROUPS.find(x => x[0] === g); return m ? m[1] : g; }
 function toggleTechLock(g) {
   const L = locksOf();
   remember();
-  if (L.tech[g]) { delete L.tech[g]; toast('ロック解除：' + techGroupLabel(g)); }
-  else { L.tech[g] = true; toast('ロック：' + techGroupLabel(g)); }
+  if (L.tech[g]) { delete L.tech[g]; toast('ロック解除：' + groupLabel(g)); }
+  else { L.tech[g] = true; toast('ロック：' + groupLabel(g)); }
   commit(); autosave(); renderTech();
 }
-function lockedEnabled() {                             // ロックした組の、いまの ON/OFF 表
+function toggleParamLock(k) {
+  const L = locksOf();
+  remember();
+  if (L.params[k]) { delete L.params[k]; toast('ロック解除：' + lockName(k)); }
+  else { L.params[k] = true; toast('ロック：' + lockName(k)); }
+  commit(); autosave(); renderFx();
+}
+function lockedEnabled() {                        // ON/OFF selection of every locked group, as it is now
   const P = S.project, out = {};
   for (const g of Object.keys(locksOf().tech)) if (P.enabled && P.enabled[g]) out[g] = Object.assign({}, P.enabled[g]);
   return out;
 }
-function restoreEnabled(keep) {                        // おまかせのあとで、ロックした組だけ元に戻す
+function restoreEnabled(keep) {                   // put the locked groups back after Randomize
   const P = S.project;
   for (const g of Object.keys(keep || {})) { P.enabled = P.enabled || {}; P.enabled[g] = keep[g]; }
 }
-function lockedParams() {                              // ロックした演出スライダーの、いまの値
+function lockedParams() {                         // current value of every locked effect / set switch
   const out = {}, L = locksOf(), F = S.project.fx;
   for (const k of Object.keys(L.params)) {
     if (!L.params[k]) continue;
-    if (k === 'koma') out[k] = J.komaOf(F);            // コマ打ち（未設定でも実効値で固定）
+    if (k === 'koma') out[k] = J.komaOf(F);                      // on-twos: freeze the effective value even when unset
     else if (k === 'flash') out[k] = !!F.flash;
     else if (F[k] != null) out[k] = F[k];
   }
   return out;
 }
-function restoreParams(keep) { const P = S.project; for (const k of Object.keys(keep || {})) P.fx[k] = keep[k]; }
-function lockBtn(k, anchor) {                          // スライダー以外の演出（コマ打ち・フラッシュ）用のロック
+function restoreParams(keep) {
+  const P = S.project;
+  for (const k of Object.keys(keep || {})) P.fx[k] = keep[k];
+}
+function lockBtn(k, anchor) {                     // lock button for effects that are not sliders (on-twos, flash)
   const p = anchor.parentElement;
-  let b = p.querySelector(`:scope > .lk[data-lk="${k}"]`);
+  let b = p.querySelector(':scope > .lk[data-lk="' + k + '"]');
   if (!b) {
     b = document.createElement('button');
-    b.type = 'button'; b.className = 'icon ghost lk'; b.dataset.lk = k;
+    b.type = 'button'; b.className = 'icon ghost lk pro-only'; b.dataset.lk = k;
     b.innerHTML = ICON.lock;
-    b.addEventListener('click', () => toggleParamLock(k));
+    b.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); toggleParamLock(k); });
     anchor.insertAdjacentElement('afterend', b);
   }
   const on = !!locksOf().params[k];
@@ -515,12 +537,8 @@ function lockBtn(k, anchor) {                          // スライダー以外�
   b.title = on ? LOCK_TITLE_OFF : LOCK_TITLE_ON;
   return b;
 }
-function toggleParamLock(k) {
-  const L = locksOf();
-  remember();
-  if (L.params[k]) delete L.params[k]; else L.params[k] = true;
-  commit(); autosave(); renderFx();
-}
+
+
 function pickEnabledTech(g, opts) {
   opts = opts || {};
   const tbl = J.registry(g) || {};
@@ -1023,10 +1041,10 @@ function restartPreview() { seek(0); if (!S.playing && S.mode !== 'pro') play();
 function omakase() {
   if (S.exporting || S.tap) return;
   remember();
-  const keepP = lockedParams(), keepE = lockedEnabled();
+  const keepE = lockedEnabled(), keepP = lockedParams();
   const r = J.omakase(S.project);
   Object.assign(S.project, r);
-  restoreParams(keepP); restoreEnabled(keepE);
+  restoreEnabled(keepE); restoreParams(keepP);
   fontKey = ''; syncUI(); replan(); commit();
   toast(`おまかせ：${J.STYLES[r.style].name} × ${J.MOODS[r.mood].name}`, r.colors.accentOn ? [r.colors.accent, r.colors.ghostA, r.colors.ghostB] : null);
   restartPreview();
@@ -1044,10 +1062,10 @@ function rerollPart(part) {
     P.colors.enabled = false;
     msg = `スタイル：${J.STYLES[P.style].name}`;
   } else if (part === 'mood') {
-    const keepP = lockedParams(), keepE = lockedEnabled();
+    const keepE = lockedEnabled(), keepP = lockedParams();
     const r = J.omakase(P);
     Object.assign(P, { mood: r.mood, fx: r.fx, enabled: r.enabled });
-    restoreParams(keepP); restoreEnabled(keepE);
+    restoreEnabled(keepE); restoreParams(keepP);
     msg = `雰囲気：${J.MOODS[r.mood].name}`;
   } else if (part === 'cut') {
     P.seed = (Math.random() * 1e9) | 0;
@@ -1117,12 +1135,11 @@ function mobileInit() {
 const FX = [['motion', '動きの強さ'], ['glitch', 'グリッチ'], ['chroma', '色ズレ'], ['decor', '装飾の量'], ['density', 'カットの細かさ'], ['texture', '質感'], ['bgSwitch', '背景の切替']];
 function renderFx() {
   const box = $('fxSliders'); box.innerHTML = '';
-  const L = locksOf();
   FX.forEach(([k, label]) => {
     const row = document.createElement('div'); row.className = 'slider';
-    const v = S.project.fx[k] ?? 0.5, on = !!L.params[k];
+    const v = S.project.fx[k] ?? 0.5, lk = lockOn(k);
     row.innerHTML = `<label for="fx_${k}">${label}</label><input id="fx_${k}" type="range" min="0" max="1" step="0.01" value="${v}"><output>${Math.round(v * 100)}</output>`
-      + `<button type="button" class="icon ghost lk" aria-pressed="${on}" title="${on ? LOCK_TITLE_OFF : LOCK_TITLE_ON}">${ICON.lock}</button>`;
+      + `<button type="button" class="icon ghost lk pro-only" data-lk="${k}" aria-pressed="${lk}" title="${lk ? LOCK_TITLE_OFF : LOCK_TITLE_ON}">${ICON.lock}</button>`;
     const inp = row.querySelector('input'), out = row.querySelector('output');
     inp.addEventListener('input', () => { S.project.fx[k] = +inp.value; S.project.mood = null; out.textContent = Math.round(inp.value * 100); replanSoon(120); });
     row.querySelector('.lk').addEventListener('click', () => toggleParamLock(k));
@@ -1229,7 +1246,6 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) kick
 function renderTech() {
   resetPreviewWatch();
   const box = $('techLists'); box.innerHTML = '';
-  const L = locksOf();
   const q = ($('techFilter').value || '').trim().toLowerCase();
   let total = 0, onAll = 0;
   GROUPS.forEach(([g, label]) => {
@@ -1242,8 +1258,8 @@ function renderTech() {
     d.open = !!q || openGroups.has(g);
     const list = document.createElement('div'); list.className = 'checks tech-grid';
     d.addEventListener('toggle', () => { if (d.open) { openGroups.add(g); queueThumbs(list); } else openGroups.delete(g); });
-    const lked = !!L.tech[g];
-    d.innerHTML = `<summary><span class="tg-name">${label}</span><span class="tg-cnt mono">${onN}/${items.length}</span><button type="button" class="icon ghost lk" data-lk="${g}" aria-pressed="${lked}" title="${lked ? LOCK_TITLE_OFF : TECH_LOCK_ON}">${ICON.lock}</button></summary><div class="tg-tools"><button class="ghost small" data-a="on">すべてON</button><button class="ghost small" data-a="off">すべてOFF</button><button class="ghost small" data-a="flip">反転</button></div>`;
+    const lked = !!locksOf().tech[g];
+    d.innerHTML = `<summary><span class="tg-name">${label}</span><span class="tg-cnt mono">${onN}/${items.length}</span><button type="button" class="icon ghost lk pro-only" data-lk="${g}" aria-pressed="${lked}" title="${lked ? LOCK_TITLE_OFF : TECH_LOCK_ON}">${ICON.lock}</button></summary><div class="tg-tools"><button class="ghost small" data-a="on">すべてON</button><button class="ghost small" data-a="off">すべてOFF</button><button class="ghost small" data-a="flip">反転</button></div>`;
     d.querySelector('summary .lk').addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); toggleTechLock(g); });
     const [tw, th] = (() => {
       const [W, H] = J.designSize(S.project.aspect || '16:9');
