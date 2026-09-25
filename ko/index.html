@@ -219,7 +219,6 @@ button.chip[aria-pressed=true] { border-color: var(--cyan); color: var(--cyan); 
 /* ロック: 「行とカット」のロックと同じ見た目（icon ghost + SVG、ロック中は文字色がアクセント色） */
 .lk[aria-pressed="true"] { color: var(--amber); }
 .tgroup summary .lk { flex: none; margin-left: 6px; }
-.check > .lk { flex: none; margin-right: 6px; }
 .checks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px 10px; }
 .checks label { display: flex; align-items: center; gap: 6px; font-size: 12px; padding: 2px 0; }
 .checks input { accent-color: var(--amber); }
@@ -36607,9 +36606,8 @@ function groupName(g, k) {
    tech:   freezes that group's ON/OFF selection, i.e. the candidate count the panel shows (120/140, 28/28).
            Randomize re-picks which techniques are candidates, so freezing the pool is what keeps the count —
            this does not pin one technique in place.
-   params: freezes the current value of the effects sliders, on-twos, flash and the part-set switches.
+   params: freezes the current value of the effects sliders, on-twos and flash.
    Neither goes into J.plan: they only bracket the places that rewrite the look (Randomize, mood reroll). */
-const SET_KEYS = ['extra', 'wa', 'typo', 'kinetic', 'horror', 'unify', 'typeset'];
 const LOCK_TITLE_ON = '랜덤/셔플에서 바뀌지 않게 잠그기';
 const TECH_LOCK_ON = '랜덤이 이 그룹의 ON/OFF 선택을 바꾸지 않게 잠그기';
 const LOCK_TITLE_OFF = '잠김 — 클릭하면 해제';
@@ -36622,7 +36620,6 @@ function locksOf() {
 }
 function lockOn(k) { return !!locksOf().params[k]; }
 function lockName(k) {
-  if (SET_UI[k]) return SET_UI[k].name;
   const f = FX.find(x => x[0] === k);
   return f ? f[1] : k;
 }
@@ -36639,7 +36636,7 @@ function toggleParamLock(k) {
   remember();
   if (L.params[k]) { delete L.params[k]; toast('잠금 해제: ' + lockName(k)); }
   else { L.params[k] = true; toast('잠금: ' + lockName(k)); }
-  commit(); autosave(); renderFx(); setSwitchLocks();
+  commit(); autosave(); renderFx();
 }
 function lockedEnabled() {                        // ON/OFF selection of every locked group, as it is now
   const P = S.project, out = {};
@@ -36656,14 +36653,13 @@ function lockedParams() {                         // current value of every lock
     if (!L.params[k]) continue;
     if (k === 'koma') out[k] = J.komaOf(F);                      // on-twos: freeze the effective value even when unset
     else if (k === 'flash') out[k] = !!F.flash;
-    else if (SET_KEYS.includes(k)) out[k] = !!S.project[k];      // part-set switch (top-level flag)
     else if (F[k] != null) out[k] = F[k];
   }
   return out;
 }
 function restoreParams(keep) {
   const P = S.project;
-  for (const k of Object.keys(keep || {})) { if (SET_KEYS.includes(k)) P[k] = keep[k]; else P.fx[k] = keep[k]; }
+  for (const k of Object.keys(keep || {})) P.fx[k] = keep[k];
 }
 function lockBtn(k, anchor) {                     // lock button for effects that are not sliders (on-twos, flash)
   const p = anchor.parentElement;
@@ -36679,24 +36675,6 @@ function lockBtn(k, anchor) {                     // lock button for effects tha
   b.setAttribute('aria-pressed', String(on));
   b.title = on ? LOCK_TITLE_OFF : LOCK_TITLE_ON;
   return b;
-}
-function setSwitchLocks() {                       // lock button for the part-set switches (both tabs)
-  ['typo', 'kinetic', 'horror'].forEach(k => {
-    document.querySelectorAll('.' + k + '-toggle').forEach(inp => {
-      const box = inp.closest('label') || inp.parentElement;
-      let b = box.querySelector(':scope > .lk[data-lk="' + k + '"]');
-      if (!b) {
-        b = document.createElement('button');
-        b.type = 'button'; b.className = 'icon ghost lk pro-only'; b.dataset.lk = k;
-        b.innerHTML = ICON.lock;
-        b.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); toggleParamLock(k); });
-        box.insertBefore(b, box.firstChild);
-      }
-      const on = !!locksOf().params[k];
-      b.setAttribute('aria-pressed', String(on));
-      b.title = on ? LOCK_TITLE_OFF : TECH_LOCK_ON;
-    });
-  });
 }
 
 
@@ -37614,7 +37592,7 @@ function syncUI() {
   document.querySelectorAll('.unify-toggle').forEach(el => { el.checked = S.project.unify === true; });
   document.querySelectorAll('.typeset-toggle').forEach(el => { el.checked = S.project.typeset === true; });
   $('lyricLang').value = J.LANG_LABEL[S.project.lang] ? S.project.lang : 'auto'; langNote();
-  renderFontRoles(); renderColors(); renderFx(); renderTech(); syncOut(); drawStyleGrid(); setSwitchLocks();
+  renderFontRoles(); renderColors(); renderFx(); renderTech(); syncOut(); drawStyleGrid();
 }
 
 /* ---------------- wiring ---------------- */
@@ -37704,7 +37682,6 @@ function bind() {
   setSwitch('typo-toggle', 'typo', true, '타이포그래피 부품: 사용', '타이포그래피 부품: 사용 안 함(자동 생성·셔플에서 선택되지 않음)');
   setSwitch('kinetic-toggle', 'kinetic', true, '키네틱 부품: 사용', '키네틱 부품: 사용 안 함(자동 생성·셔플에서 선택되지 않음)');
   setSwitch('horror-toggle', 'horror', true, '호러 연출: 사용(자동 생성 분위기에 「호러」 추가)', '호러 연출: 사용 안 함');
-  setSwitchLocks();   // part sets (typographic / kinetic / horror) can be locked too
   setSwitch('unify-toggle', 'unify', true, '통일감: 켬(파트별로 맞추고 킬링 파트·모프·굵기도 사용)', '통일감: 끔');
   setSwitch('typeset-toggle', 'typeset', true, '문자 정렬: 켬(자간·조사·영문·0.2초 먼저·효과 절제)', '문자 정렬: 끔');
   $('fxKoma').addEventListener('change', e => { const k = +e.target.value; S.project.fx.koma = k; S.project.fx.onTwos = k > 0; S.project.mood = null; replan(); });
