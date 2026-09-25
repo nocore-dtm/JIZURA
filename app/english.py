@@ -146,6 +146,10 @@ BODY = {
     'このカットを繰り返し': 'Loop this cut',
     '繰り返しなし': 'No loop',
     'このカットだけ差し替え': 'Replace only this cut',
+    'このカットだけ構成を再抽選': 'Re-roll the composition of only this cut',
+    'このカットだけ手法をランダムに': 'Randomise the technique of only this cut',
+    'このカットをシャッフル': 'Shuffle this cut',
+    'このカットをおまかせ': 'Randomise this cut',
 }
 
 UI = {
@@ -263,6 +267,8 @@ UI = {
     'この行を繰り返し': 'Loop this line',
     'このカットを繰り返し': 'Loop this cut',
     '繰り返しなし': 'No loop',
+    'この位置のカットは抽選できません': 'No cut at this position to re-roll',
+    '`${i + 1}行目 カット${k + 1}のレイアウト`': '`Layout of cut ${k + 1} on line ${i + 1}`',
 }
 
 EXPORT = {

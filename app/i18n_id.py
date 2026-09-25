@@ -171,6 +171,10 @@ BODY = {
     'このカットを繰り返し': 'Ulangi cut ini',
     '繰り返しなし': 'Tanpa loop',
     'このカットだけ差し替え': 'Ganti cut ini saja',
+    'このカットだけ構成を再抽選': 'Undi ulang susunan cut ini saja',
+    'このカットだけ手法をランダムに': 'Acak teknik cut ini saja',
+    'このカットをシャッフル': 'Acak cut ini',
+    'このカットをおまかせ': 'Buat variasi cut ini',
 }
 
 UI = {
@@ -288,6 +292,8 @@ UI = {
     'この行を繰り返し': 'Ulangi baris ini',
     'このカットを繰り返し': 'Ulangi cut ini',
     '繰り返しなし': 'Tanpa loop',
+    'この位置のカットは抽選できません': 'Tidak ada cut di posisi ini untuk diundi ulang',
+    '`${i + 1}行目 カット${k + 1}のレイアウト`': '`Layout cut ${k + 1} di baris ${i + 1}`',
 }
 
 EXPORT = {

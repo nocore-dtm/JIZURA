@@ -30715,7 +30715,7 @@ function rerollCurrentCut(kind) {
   if (S.exporting || S.tap) return;
   const cut = J.cutAt(S.plan, S.t);
   const k = lyricCutK(cut);
-  if (!cut || k < 0) { toast('この位置のcutは抽選できません'); return; }
+  if (!cut || k < 0) { toast('Tidak ada cut di posisi ini untuk diundi ulang'); return; }
   remember();
   const n = [...String(cut.text || '').replace(/\s+/g, '')].length;
   const groups = kind === 'omakase'
@@ -30880,7 +30880,7 @@ function renderLines() {
       sel.innerHTML = layoutOpts;
       sel.value = forced || c.layout;
       sel.title = `${c.text}｜${J.ENTER[c.enter].name} → ${J.EXIT[c.exit].name}`;
-      sel.setAttribute('aria-label', `${i + 1}baris 目 cut${k + 1}のLayout`);
+      sel.setAttribute('aria-label', `Layout cut ${k + 1} di baris ${i + 1}`);
       sel.style.borderColor = `hsla(${layoutHue(c.layout)},70%,58%,0.7)`;
       sel.addEventListener('pointerdown', () => seek(c.start + Math.min(c.dur * 0.5, c.inDur + 0.05)));
       sel.addEventListener('change', e => { setCutLayout(i, k, e.target.value); replan(); seek(c.start + Math.min(c.dur * 0.5, c.inDur + 0.05)); });
