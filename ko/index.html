@@ -30776,11 +30776,31 @@ function restoreEnabled(keep) {                        // おまかせのあと�
   for (const g of Object.keys(keep || {})) { P.enabled = P.enabled || {}; P.enabled[g] = keep[g]; }
 }
 function lockedParams() {                              // ロックした연출スライダーの、いまの値
-  const out = {}, L = locksOf();
-  for (const k of Object.keys(L.params)) if (L.params[k] && S.project.fx[k] != null) out[k] = S.project.fx[k];
+  const out = {}, L = locksOf(), F = S.project.fx;
+  for (const k of Object.keys(L.params)) {
+    if (!L.params[k]) continue;
+    if (k === 'koma') out[k] = J.komaOf(F);            // コマ打ち（未設定でも実効値で固定）
+    else if (k === 'flash') out[k] = !!F.flash;
+    else if (F[k] != null) out[k] = F[k];
+  }
   return out;
 }
 function restoreParams(keep) { const P = S.project; for (const k of Object.keys(keep || {})) P.fx[k] = keep[k]; }
+function lockBtn(k, anchor) {                          // スライダー以外の연출（コマ打ち · フラッシュ）用のロック
+  const p = anchor.parentElement;
+  let b = p.querySelector(`:scope > .lk[data-lk="${k}"]`);
+  if (!b) {
+    b = document.createElement('button');
+    b.type = 'button'; b.className = 'icon ghost lk'; b.dataset.lk = k;
+    b.innerHTML = ICON.lock;
+    b.addEventListener('click', () => toggleParamLock(k));
+    anchor.insertAdjacentElement('afterend', b);
+  }
+  const on = !!locksOf().params[k];
+  b.setAttribute('aria-pressed', String(on));
+  b.title = on ? LOCK_TITLE_OFF : LOCK_TITLE_ON;
+  return b;
+}
 function toggleParamLock(k) {
   const L = locksOf();
   remember();
@@ -31350,6 +31370,8 @@ function renderFx() {
   });
   $('fxFlash').checked = !!S.project.fx.flash;
   $('fxKoma').value = String(J.komaOf(S.project.fx));
+  lockBtn('flash', $('fxFlash').closest('label'));
+  lockBtn('koma', $('fxKoma').closest('label'));
   $('fxHud').value = S.project.fx.hud || 'auto';
   $('seed').value = S.project.seed;
 }
