@@ -144,9 +144,9 @@ BODY = {
     '繰り返しなし': 'No loop',
     'このカットだけ差し替え': 'Replace only this cut',
     'このカットだけ構成を再抽選': 'Re-roll the composition of only this cut',
-    'このカットだけ手法をランダムに': 'Randomise the technique of only this cut',
+    'このカットだけ手法をランダムに': 'Randomize the technique of only this cut',
     'このカットをシャッフル': 'Shuffle this cut',
-    'このカットをおまかせ': 'Randomise this cut',
+    'このカットをおまかせ': 'Randomize this cut',
     'タイムラインを拡大': 'Zoom in the timeline',
     'タイムラインを縮小': 'Zoom out the timeline',
 }
@@ -268,6 +268,12 @@ UI = {
     '繰り返しなし': 'No loop',
     'この位置のカットは抽選できません': 'No cut at this position to re-roll',
     '`${i + 1}行目 カット${k + 1}のレイアウト`': '`Layout of cut ${k + 1} on line ${i + 1}`',
+    'このカットだけ構成を再抽選': 'Re-roll the composition of only this cut',
+    'このカットだけ手法をランダムに': 'Randomize the technique of only this cut',
+    'このカットをシャッフル': 'Shuffle this cut',
+    'このカットをおまかせ': 'Randomize this cut',
+    'おまかせ': 'Randomize',
+    'シャッフル': 'Shuffle',
 }
 
 EXPORT = {
