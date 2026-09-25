@@ -30451,10 +30451,10 @@ const ICON = {
 const S = { project: null, plan: null, audio: null, renderer: new J.Renderer(), playing: false, t: 0, t0: 0, loop: 'all', loopHold: null, need: true, exporting: null, tap: null, slow: false, lineEls: [], curLine: -2 };
 const LOOP_CYCLE = ['all', 'line', 'cut', false];
 const LOOP_COPY = {
-  all:  { ja: 'ループ', en: 'Loop', titleJa: '全体を繰り返し', titleEn: 'Loop the whole piece' },
-  line: { ja: '줄 ループ', en: 'Line loop', titleJa: 'この줄 を繰り返し', titleEn: 'Loop this line' },
-  cut:  { ja: '컷ループ', en: 'Cut loop', titleJa: 'この컷を繰り返し', titleEn: 'Loop this cut' },
-  off:  { ja: 'ループ', en: 'Loop', titleJa: '繰り返し없음', titleEn: 'No loop' },
+  all:  { ja: '반복', en: 'Loop', titleJa: '전체 반복 재생', titleEn: 'Loop the whole piece' },
+  line: { ja: '줄 반복', en: 'Line loop', titleJa: '이 줄 반복 재생', titleEn: 'Loop this line' },
+  cut:  { ja: '컷 반복', en: 'Cut loop', titleJa: '이 컷 반복 재생', titleEn: 'Loop this cut' },
+  off:  { ja: '반복', en: 'Loop', titleJa: '반복 없음', titleEn: 'No loop' },
 };
 const isEn = () => document.documentElement.lang === 'en';
 function cutAround(t) {
