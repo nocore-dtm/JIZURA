@@ -30807,7 +30807,7 @@ function groupName(g, k) {
   return (tbl && tbl[k] && tbl[k].name) || k;
 }
 
-/* ---------------- ロック: おまかせ／シャッフルでも変えない ---------------- */
+/* ---------------- ロック: 一键随机／随机编排でも変えない ---------------- */
 const LOCK_TITLE_ON = '锁住，让“随机”与“重新洗牌”不会改动它';
 const TECH_LOCK_ON = '锁住，让“随机”不会改动这组的 ON／OFF 选择';
 const LOCK_TITLE_OFF = '已锁住，点一下解除';
@@ -30820,7 +30820,7 @@ function locksOf() {
 }
 function techGroupLabel(g) { const m = GROUPS.find(x => x[0] === g); return m ? m[1] : g; }
 // 手法タブのロック = その組の ON/OFF（＝候補数 120/140 など）をそのまま固定する。
-// おまかせ／シャッフルが選び直すのは「どの手法を候補にするか」なので、ここを固定すれば数も中身も変わらない。
+// 一键随机／随机编排が選び直すのは「どの手法を候補にするか」なので、ここを固定すれば数も中身も変わらない。
 function toggleTechLock(g) {
   const L = locksOf();
   remember();
@@ -30833,7 +30833,7 @@ function lockedEnabled() {                             // ロックした組の�
   for (const g of Object.keys(locksOf().tech)) if (P.enabled && P.enabled[g]) out[g] = Object.assign({}, P.enabled[g]);
   return out;
 }
-function restoreEnabled(keep) {                        // おまかせのあとで、ロックした組だけ元に戻す
+function restoreEnabled(keep) {                        // 一键随机のあとで、ロックした組だけ元に戻す
   const P = S.project;
   for (const g of Object.keys(keep || {})) { P.enabled = P.enabled || {}; P.enabled[g] = keep[g]; }
 }
@@ -30901,7 +30901,7 @@ function rerollCurrentCut(kind) {
     : ['layout', 'enter', 'hold', 'exit', 'cam', 'trans'];
   const t0 = S.t;
   groups.forEach(g => {
-    if (locksOf().tech[g]) return;                 // ロックした組はシャッフル／おまかせでも動かさない
+    if (locksOf().tech[g]) return;                 // ロックした組は随机编排／一键随机でも動かさない
     const allowNone = g === 'decor' || g === 'trans';
     const key = pickEnabledTech(g, { avoid: kind === 'omakase' ? cutGroupVal(cut, g) : null, allowNone, n });
     if (key) setCutTech(cut.line, k, g, key);
@@ -30911,7 +30911,7 @@ function rerollCurrentCut(kind) {
   replan();
   commit();
   seek(t0);
-  toast(kind === 'omakase' ? 'この镜头をおまかせ' : 'この镜头をシャッフル');
+  toast(kind === 'omakase' ? '这个镜头一键随机' : '随机编排这个镜头');
 }
 function updateCutInfo() {
   const cut = J.cutAt(S.plan, S.t);
@@ -30930,8 +30930,8 @@ function updateCutInfo() {
     const forced = slot[g] != null && slot[g] !== '' && !quiet[g];
     bits.push(`<button type="button" class="chip ${cls}${forced ? ' is-forced' : ''}" data-g="${g}" aria-pressed="${cutPick.g === g ? 'true' : 'false'}" ${k < 0 ? 'disabled' : ''}><b>${label}</b>${escapeHtml(groupName(g, cutGroupVal(cut, g)))}</button>`);
   });
-  bits.push(`<button type="button" class="ghost small cut-roll" data-roll="shuffle" ${k < 0 ? 'disabled' : ''} title="この镜头だけ编排を再抽選">シャッフル</button>`);
-  bits.push(`<button type="button" class="ghost small cut-roll accent" data-roll="omakase" ${k < 0 ? 'disabled' : ''} title="この镜头だけ手法を随机に">おまかせ</button>`);
+  bits.push(`<button type="button" class="ghost small cut-roll" data-roll="shuffle" ${k < 0 ? 'disabled' : ''} title="只重新抽选这个镜头的编排">随机编排</button>`);
+  bits.push(`<button type="button" class="ghost small cut-roll accent" data-roll="omakase" ${k < 0 ? 'disabled' : ''} title="只把这个镜头的手法随机化">一键随机</button>`);
   el.innerHTML = bits.join('');
   if (k >= 0) {
     el.querySelectorAll('button.chip[data-g]').forEach(b => b.addEventListener('click', () => toggleCutPick(b.dataset.g, cut, k)));
@@ -31350,7 +31350,7 @@ function updateHist() {
   $('histPos').textContent = H.list.length > 1 ? `${H.i + 1} / ${H.list.length}` : '';
 }
 
-/* ---------------- おまかせ ---------------- */
+/* ---------------- 一键随机 ---------------- */
 function restartPreview() { seek(0); if (!S.playing && S.mode !== 'pro') play(); }
 function omakase() {
   if (S.exporting || S.tap) return;
