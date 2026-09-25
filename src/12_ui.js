@@ -108,7 +108,10 @@ function mergeProject(p) {
   for (const g of Object.keys(en)) en[g] = Object.assign(en[g], ((p && p.enabled) || {})[g] || {});
   o.enabled = en;
   o.overrides = (p && p.overrides) || {};
-  o.locks = { tech: Object.assign({}, (p && p.locks && p.locks.tech) || {}), params: Object.assign({}, (p && p.locks && p.locks.params) || {}) };
+  o.locks = { tech: {}, params: {} };
+  // project files are untrusted: only plain keys may be locked, and only on (never a value we did not write)
+  for (const [g, on] of Object.entries((p && p.locks && p.locks.tech) || {})) if (on === true && /^[\w-]+$/.test(g)) o.locks.tech[g] = true;
+  for (const [k, on] of Object.entries((p && p.locks && p.locks.params) || {})) if (on === true && /^[\w-]+$/.test(k)) o.locks.params[k] = true;
   delete o.appVersion;
   // project files are untrusted: colours must be colours, font keys plain keys (they end up in the page's HTML / CSS)
   o.colors = { enabled: !!(p && p.colors && p.colors.enabled) };
@@ -1471,7 +1474,7 @@ function syncUI() {
   document.querySelectorAll('.unify-toggle').forEach(el => { el.checked = S.project.unify === true; });
   document.querySelectorAll('.typeset-toggle').forEach(el => { el.checked = S.project.typeset === true; });
   $('lyricLang').value = J.LANG_LABEL[S.project.lang] ? S.project.lang : 'auto'; langNote();
-  renderFontRoles(); renderColors(); renderFx(); renderTech(); syncOut(); drawStyleGrid();
+  renderFontRoles(); renderColors(); renderFx(); renderTech(); syncOut(); drawStyleGrid(); setSwitchLocks();
 }
 
 /* ---------------- wiring ---------------- */
