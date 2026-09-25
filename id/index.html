@@ -3851,6 +3851,7 @@ J.plan = (project, audio) => {
       // 文字整列: effects don't pile up — one decoration, no text treatment on top of it
       if (plan.typeset) { cut.decor = cut.decor.slice(0, 1); if (cut.decor.length && cut.treat !== 'none') { cut.treat = 'none'; cut.treatP = {}; } }
       plan.cuts.push(cut);
+      const evMark = plan.events.length;
       history.push({ layout: pickedLayout, enter: pickedEnter, exit: pickedExit, hold: pickedHold, treat: pickedTreat, cam: pickedCam, trans: pickedTrans, decor: pickedDecor });
       // events at cut start
       // events at cut start — durations are on a 24fps timebase so every output rate looks the same
