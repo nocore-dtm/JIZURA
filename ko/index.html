@@ -31259,6 +31259,10 @@ function commit() {              // call after changing the look
   if (H.list.length > 80) { H.list.splice(0, H.list.length - 80); H.i = H.list.length - 1; }
   updateHist();
 }
+function forgetHistory() {       // 別のプロジェクトを開いたら、前の project の見た目（ロック含む）を履歴から引き継がない
+  H.list = []; H.i = -1;
+  remember(); updateHist();
+}
 function histGo(d) {
   if (S.exporting) return;
   remember();                    // hand edits made since the last step become a stop of their own
@@ -31822,7 +31826,7 @@ function bind() {
   $('resetDlg').addEventListener('close', () => { if ($('resetDlg').returnValue === 'reset') resetAll(); });
   $('fileProject').addEventListener('change', async e => {
     const f = e.target.files && e.target.files[0]; if (!f) return;
-    try { S.project = mergeProject(JSON.parse(await f.text())); syncUI(); replan(); }
+    try { S.project = mergeProject(JSON.parse(await f.text())); forgetHistory(); syncUI(); replan(); }
     catch (err) { showMsg('프로젝트를 열지 못했습니다'); setTimeout(() => showMsg(null), 2500); }
     e.target.value = '';
   });
