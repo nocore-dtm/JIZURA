@@ -175,6 +175,8 @@ BODY = {
     'このカットだけ手法をランダムに': 'Acak teknik cut ini saja',
     'このカットをシャッフル': 'Acak cut ini',
     'このカットをおまかせ': 'Buat variasi cut ini',
+    'タイムラインを拡大': 'Perbesar timeline',
+    'タイムラインを縮小': 'Perkecil timeline',
 }
 
 UI = {

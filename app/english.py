@@ -150,6 +150,8 @@ BODY = {
     'このカットだけ手法をランダムに': 'Randomise the technique of only this cut',
     'このカットをシャッフル': 'Shuffle this cut',
     'このカットをおまかせ': 'Randomise this cut',
+    'タイムラインを拡大': 'Zoom in the timeline',
+    'タイムラインを縮小': 'Zoom out the timeline',
 }
 
 UI = {
