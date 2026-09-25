@@ -145,6 +145,7 @@ BODY = {
     'この行を繰り返し': 'Loop this line',
     'このカットを繰り返し': 'Loop this cut',
     '繰り返しなし': 'No loop',
+    'このカットだけ差し替え': 'Replace only this cut',
 }
 
 UI = {

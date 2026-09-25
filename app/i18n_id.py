@@ -170,6 +170,7 @@ BODY = {
     'この行を繰り返し': 'Ulangi baris ini',
     'このカットを繰り返し': 'Ulangi cut ini',
     '繰り返しなし': 'Tanpa loop',
+    'このカットだけ差し替え': 'Ganti cut ini saja',
 }
 
 UI = {
