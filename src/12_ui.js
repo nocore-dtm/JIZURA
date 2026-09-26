@@ -261,6 +261,7 @@ function tick(now) {
       else { pause(); t = Math.min(t, S.plan.duration - 1e-3); if (S.tap) stopTap(); }
     }
     S.t = t; S.need = true;
+    followTlPlayhead();
   }
   if (S.need) { S.need = false; draw(); }
 }
@@ -270,10 +271,10 @@ function updateTimeUI() {
   if (!S.scrubbing) $('scrub').value = String(Math.round(S.t / Math.max(0.001, S.plan.duration) * 10000));
 }
 function play() {
+  refreshLoopHold();
   if (S.audio) AP.play(S.audio.buffer, S.t);
   else S.t0 = performance.now() - S.t * 1000;
   S.playing = true; $('btnPlay').textContent = '❚❚'; $('btnPlay').setAttribute('aria-label', '一時停止');
-  refreshLoopHold();
 }
 function pause() {
   S.playing = false; AP.stop();
@@ -292,7 +293,6 @@ function seek(t) {
 const layoutHue = k => (J.LAYOUT_ORDER.indexOf(k) * 37 + 30) % 360;
 const TL = { z: 1, off: 0, hover: -1, drag: -1 };
 function tlView() {
-  if (!S.plan) return { D: 1, vd: 1, off: 0 };
   const D = Math.max(0.001, S.plan.duration), vd = D / TL.z;
   TL.off = J.clamp(TL.off, 0, Math.max(0, D - vd));
   return { D, vd, off: TL.off };
@@ -302,6 +302,12 @@ function tlZoom(f, tc) {
   const z = J.clamp(TL.z * f, 1, Math.max(1, D / 2));
   const c = tc == null ? S.t : tc, frac = (c - TL.off) / vd;
   TL.z = z; TL.off = c - frac * (D / z); tlView(); drawTimeline();
+}
+// while playing zoomed in: redraw (which scrolls the view) once the playhead leaves the visible part
+function followTlPlayhead() {
+  if (!(TL.z > 1) || TL.drag >= 0) return;
+  const { vd, off } = tlView();
+  if (S.t < off || S.t > off + vd * 0.92) drawTimeline();
 }
 function drawTimeline() {
   const c = $('timeline'), dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -461,84 +467,6 @@ function groupName(g, k) {
   const tbl = J.registry(g);
   return (tbl && tbl[k] && tbl[k].name) || k;
 }
-
-/* ---------------- locks (what Randomize / Shuffle must not touch) ----------------
-   project.locks = { tech: { group: true }, params: { key: true } }
-   tech:   freezes that group's ON/OFF selection, i.e. the candidate count the panel shows (120/140, 28/28).
-           Randomize re-picks which techniques are candidates, so freezing the pool is what keeps the count —
-           this does not pin one technique in place.
-   params: freezes the current value of the effects sliders, on-twos and flash.
-   Neither goes into J.plan: they only bracket the places that rewrite the look (Randomize, mood reroll). */
-const LOCK_TITLE_ON = 'おまかせ／シャッフルで変えないようにロック';
-const TECH_LOCK_ON = 'おまかせでON／OFFを変えないようにロック';
-const LOCK_TITLE_OFF = 'ロック中。クリックで解除';
-function locksOf() {
-  const P = S.project;
-  if (!P.locks) P.locks = { tech: {}, params: {} };
-  if (!P.locks.tech) P.locks.tech = {};
-  if (!P.locks.params) P.locks.params = {};
-  return P.locks;
-}
-function lockOn(k) { return !!locksOf().params[k]; }
-function lockName(k) {
-  const f = FX.find(x => x[0] === k);
-  return f ? f[1] : k;
-}
-function groupLabel(g) { const m = GROUPS.find(x => x[0] === g); return m ? m[1] : g; }
-function toggleTechLock(g) {
-  const L = locksOf();
-  remember();
-  if (L.tech[g]) { delete L.tech[g]; toast('ロック解除：' + groupLabel(g)); }
-  else { L.tech[g] = true; toast('ロック：' + groupLabel(g)); }
-  commit(); autosave(); renderTech();
-}
-function toggleParamLock(k) {
-  const L = locksOf();
-  remember();
-  if (L.params[k]) { delete L.params[k]; toast('ロック解除：' + lockName(k)); }
-  else { L.params[k] = true; toast('ロック：' + lockName(k)); }
-  commit(); autosave(); renderFx();
-}
-function lockedEnabled() {                        // ON/OFF selection of every locked group, as it is now
-  const P = S.project, out = {};
-  for (const g of Object.keys(locksOf().tech)) if (P.enabled && P.enabled[g]) out[g] = Object.assign({}, P.enabled[g]);
-  return out;
-}
-function restoreEnabled(keep) {                   // put the locked groups back after Randomize
-  const P = S.project;
-  for (const g of Object.keys(keep || {})) { P.enabled = P.enabled || {}; P.enabled[g] = keep[g]; }
-}
-function lockedParams() {                         // current value of every locked effect / set switch
-  const out = {}, L = locksOf(), F = S.project.fx;
-  for (const k of Object.keys(L.params)) {
-    if (!L.params[k]) continue;
-    if (k === 'koma') out[k] = J.komaOf(F);                      // on-twos: freeze the effective value even when unset
-    else if (k === 'flash') out[k] = !!F.flash;
-    else if (F[k] != null) out[k] = F[k];
-  }
-  return out;
-}
-function restoreParams(keep) {
-  const P = S.project;
-  for (const k of Object.keys(keep || {})) P.fx[k] = keep[k];
-}
-function lockBtn(k, anchor) {                     // lock button for effects that are not sliders (on-twos, flash)
-  const p = anchor.parentElement;
-  let b = p.querySelector(':scope > .lk[data-lk="' + k + '"]');
-  if (!b) {
-    b = document.createElement('button');
-    b.type = 'button'; b.className = 'icon ghost lk pro-only'; b.dataset.lk = k;
-    b.innerHTML = ICON.lock;
-    b.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); toggleParamLock(k); });
-    anchor.insertAdjacentElement('afterend', b);
-  }
-  const on = !!locksOf().params[k];
-  b.setAttribute('aria-pressed', String(on));
-  b.title = on ? LOCK_TITLE_OFF : LOCK_TITLE_ON;
-  return b;
-}
-
-
 function pickEnabledTech(g, opts) {
   opts = opts || {};
   const tbl = J.registry(g) || {};
@@ -571,7 +499,6 @@ function rerollCurrentCut(kind) {
     : ['layout', 'enter', 'hold', 'exit', 'cam', 'trans'];
   const t0 = S.t;
   groups.forEach(g => {
-    if (locksOf().tech[g]) return;                 // ロックした組はシャッフル／おまかせでも動かさない
     const allowNone = g === 'decor' || g === 'trans';
     const key = pickEnabledTech(g, { avoid: kind === 'omakase' ? cutGroupVal(cut, g) : null, allowNone, n });
     if (key) setCutTech(cut.line, k, g, key);
@@ -686,7 +613,6 @@ function fillCutPick() {
   });
   queueThumbs(grid);
 }
-
 
 /* ---------------- line list ---------------- */
 function renderLines() {
@@ -820,6 +746,11 @@ function clearLyrics() {
 }
 // 初期化: back to a blank project — song (also the copy kept in this browser), settings and both histories go
 let audioNameDefault = '';
+function forgetHistory() {       // Opening another project must not carry the previous one's look (locks included) into the undo history
+  H.list = []; H.i = -1;
+  remember(); updateHist();
+}
+
 async function resetAll() {
   if (S.exporting) return;
   if (S.tap) stopTap();
@@ -1015,10 +946,6 @@ function commit() {              // call after changing the look
   if (H.list.length > 80) { H.list.splice(0, H.list.length - 80); H.i = H.list.length - 1; }
   updateHist();
 }
-function forgetHistory() {       // 別のプロジェクトを開いたら、前の project の見た目（ロック含む）を履歴から引き継がない
-  H.list = []; H.i = -1;
-  remember(); updateHist();
-}
 function histGo(d) {
   if (S.exporting) return;
   remember();                    // hand edits made since the last step become a stop of their own
@@ -1034,6 +961,82 @@ function updateHist() {
   ['btnPrev', 'btnPrev2'].forEach(id => { $(id).disabled = !canB; });
   ['btnNext', 'btnNext2'].forEach(id => { $(id).disabled = !canF; });
   $('histPos').textContent = H.list.length > 1 ? `${H.i + 1} / ${H.list.length}` : '';
+}
+
+/* ---------------- locks (what Randomize / Shuffle must not touch) ----------------
+   project.locks = { tech: { group: true }, params: { key: true } }
+   tech:   freezes that group's ON/OFF selection, i.e. the candidate count the panel shows (120/140, 28/28).
+           Randomize re-picks which techniques are candidates, so freezing the pool is what keeps the count —
+           this does not pin one technique in place.
+   params: freezes the current value of the effects sliders, on-twos and flash.
+   Neither goes into J.plan: they only bracket the places that rewrite the look (Randomize, mood reroll). */
+const LOCK_TITLE_ON = 'おまかせ／シャッフルで変えないようにロック';
+const TECH_LOCK_ON = 'おまかせでON／OFFを変えないようにロック';
+const LOCK_TITLE_OFF = 'ロック中。クリックで解除';
+function locksOf() {
+  const P = S.project;
+  if (!P.locks) P.locks = { tech: {}, params: {} };
+  if (!P.locks.tech) P.locks.tech = {};
+  if (!P.locks.params) P.locks.params = {};
+  return P.locks;
+}
+function lockOn(k) { return !!locksOf().params[k]; }
+function lockName(k) {
+  const f = FX.find(x => x[0] === k);
+  return f ? f[1] : k;
+}
+function groupLabel(g) { const m = GROUPS.find(x => x[0] === g); return m ? m[1] : g; }
+function toggleTechLock(g) {
+  const L = locksOf();
+  remember();
+  if (L.tech[g]) { delete L.tech[g]; toast('ロック解除：' + groupLabel(g)); }
+  else { L.tech[g] = true; toast('ロック：' + groupLabel(g)); }
+  commit(); autosave(); renderTech();
+}
+function toggleParamLock(k) {
+  const L = locksOf();
+  remember();
+  if (L.params[k]) { delete L.params[k]; toast('ロック解除：' + lockName(k)); }
+  else { L.params[k] = true; toast('ロック：' + lockName(k)); }
+  commit(); autosave(); renderFx();
+}
+function lockedEnabled() {                        // ON/OFF selection of every locked group, as it is now
+  const P = S.project, out = {};
+  for (const g of Object.keys(locksOf().tech)) if (P.enabled && P.enabled[g]) out[g] = Object.assign({}, P.enabled[g]);
+  return out;
+}
+function restoreEnabled(keep) {                   // put the locked groups back after Randomize
+  const P = S.project;
+  for (const g of Object.keys(keep || {})) { P.enabled = P.enabled || {}; P.enabled[g] = keep[g]; }
+}
+function lockedParams() {                         // current value of every locked effect / set switch
+  const out = {}, L = locksOf(), F = S.project.fx;
+  for (const k of Object.keys(L.params)) {
+    if (!L.params[k]) continue;
+    if (k === 'koma') out[k] = J.komaOf(F);                      // on-twos: freeze the effective value even when unset
+    else if (k === 'flash') out[k] = !!F.flash;
+    else if (F[k] != null) out[k] = F[k];
+  }
+  return out;
+}
+function restoreParams(keep) {
+  const P = S.project;
+  for (const k of Object.keys(keep || {})) P.fx[k] = keep[k];
+}
+function lockBtn(k, anchor) {                     // lock button for effects that are not sliders (on-twos, flash)
+  const p = anchor.parentElement;
+  let b = p.querySelector(':scope > .lk[data-lk="' + k + '"]');
+  if (!b) {
+    b = document.createElement('button');
+    b.type = 'button'; b.className = 'icon ghost lk pro-only'; b.dataset.lk = k;
+    b.innerHTML = ICON.lock;
+    b.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); toggleParamLock(k); });
+    anchor.insertAdjacentElement('afterend', b);
+  }
+  const on = !!locksOf().params[k];
+  b.setAttribute('aria-pressed', String(on));
+  b.title = on ? LOCK_TITLE_OFF : LOCK_TITLE_ON;
+  return b;
 }
 
 /* ---------------- おまかせ ---------------- */
@@ -1080,7 +1083,7 @@ function showNow() {
   const P = S.project, sc = S.plan.style.schemes[0];
   const moodName = P.mood && J.MOODS[P.mood] ? J.MOODS[P.mood].name : 'カスタム';
   const fk = S.plan.style.fonts.display[0];
-  const fontName = J.FONTS[fk] ? J.FONTS[fk].label : fk;
+  const fontName = J.FONTS[fk] ? (J.faceOf ? J.faceOf(fk) : J.FONTS[fk]).label : fk;   // the face actually drawn for the lyric language
   const cuts = S.plan.cuts.filter(c => c.line >= 0 && c.layout !== 'interlude');
   const kinds = new Set(cuts.map(c => c.layout)).size;
   const row = (k, v) => `<div class="now-row"><span class="k">${k}</span><span class="v">${v}</span></div>`;
@@ -1114,9 +1117,9 @@ function setMode(m) {
   $('modePro').setAttribute('aria-pressed', String(S.mode === 'pro'));
   try { localStorage.setItem('jizura.mode', S.mode); } catch (e) {}
   if (mobile) mobileInit();
-  if (easy) { showNow(); syncOut(); codecNoteSoon(); }
-  if (easy) closeCutPick();
-  if (S.plan && S.lineEls && S.lineEls.length) { lastCutIdx = -2; updateCutInfo(); }
+    if (easy) { showNow(); syncOut(); codecNoteSoon(); }
+    if (easy) closeCutPick();
+    if (S.plan && S.lineEls && S.lineEls.length) { lastCutIdx = -2; updateCutInfo(); }
   sizeViewport(); drawTimeline(); loadThumbFonts();
 }
 
@@ -1137,18 +1140,19 @@ function renderFx() {
   const box = $('fxSliders'); box.innerHTML = '';
   FX.forEach(([k, label]) => {
     const row = document.createElement('div'); row.className = 'slider';
-    const v = S.project.fx[k] ?? 0.5, lk = lockOn(k);
+    const v = S.project.fx[k] ?? 0.5;
+    const lk = lockOn(k);
     row.innerHTML = `<label for="fx_${k}">${label}</label><input id="fx_${k}" type="range" min="0" max="1" step="0.01" value="${v}"><output>${Math.round(v * 100)}</output>`
       + `<button type="button" class="icon ghost lk pro-only" data-lk="${k}" aria-pressed="${lk}" title="${lk ? LOCK_TITLE_OFF : LOCK_TITLE_ON}">${ICON.lock}</button>`;
     const inp = row.querySelector('input'), out = row.querySelector('output');
-    inp.addEventListener('input', () => { S.project.fx[k] = +inp.value; S.project.mood = null; out.textContent = Math.round(inp.value * 100); replanSoon(120); });
     row.querySelector('.lk').addEventListener('click', () => toggleParamLock(k));
+    inp.addEventListener('input', () => { S.project.fx[k] = +inp.value; S.project.mood = null; out.textContent = Math.round(inp.value * 100); replanSoon(120); });
     box.appendChild(row);
   });
-  $('fxFlash').checked = !!S.project.fx.flash;
-  $('fxKoma').value = String(J.komaOf(S.project.fx));
   lockBtn('flash', $('fxFlash').closest('label'));
   lockBtn('koma', $('fxKoma').closest('label'));
+  $('fxFlash').checked = !!S.project.fx.flash;
+  $('fxKoma').value = String(J.komaOf(S.project.fx));
   $('fxHud').value = S.project.fx.hud || 'auto';
   $('seed').value = S.project.seed;
 }
@@ -1259,8 +1263,8 @@ function renderTech() {
     const list = document.createElement('div'); list.className = 'checks tech-grid';
     d.addEventListener('toggle', () => { if (d.open) { openGroups.add(g); queueThumbs(list); } else openGroups.delete(g); });
     const lked = !!locksOf().tech[g];
-    d.innerHTML = `<summary><span class="tg-name">${label}</span><span class="tg-cnt mono">${onN}/${items.length}</span><button type="button" class="icon ghost lk pro-only" data-lk="${g}" aria-pressed="${lked}" title="${lked ? LOCK_TITLE_OFF : TECH_LOCK_ON}">${ICON.lock}</button></summary><div class="tg-tools"><button class="ghost small" data-a="on">すべてON</button><button class="ghost small" data-a="off">すべてOFF</button><button class="ghost small" data-a="flip">反転</button></div>`;
-    d.querySelector('summary .lk').addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); toggleTechLock(g); });
+    d.innerHTML = `<summary><span class="tg-name">${label}</span><span class="tg-cnt mono">${onN}/${items.length}</span>`
+      + `<button type="button" class="icon ghost lk pro-only" data-lk="${g}" aria-pressed="${lked}" title="${lked ? LOCK_TITLE_OFF : TECH_LOCK_ON}">${ICON.lock}</button></summary><div class="tg-tools"><button class="ghost small" data-a="on">すべてON</button><button class="ghost small" data-a="off">すべてOFF</button><button class="ghost small" data-a="flip">反転</button></div>`;
     const [tw, th] = (() => {
       const [W, H] = J.designSize(S.project.aspect || '16:9');
       const h = 90; return [Math.max(80, Math.round(h * W / H)), h];
@@ -1275,6 +1279,7 @@ function renderTech() {
       l.querySelector('input').addEventListener('change', e => { en[k] = e.target.checked; S.project.mood = null; d.querySelector('.tg-cnt').textContent = `${items.filter(x => en[x] !== false).length}/${items.length}`; replanSoon(60); });
       list.appendChild(l);
     });
+    d.querySelector('summary .lk').addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); toggleTechLock(g); });
     d.querySelectorAll('.tg-tools button').forEach(b => b.addEventListener('click', () => {
       const a = b.dataset.a;
       shown.forEach(k => { en[k] = a === 'on' ? true : a === 'off' ? false : en[k] === false; });
