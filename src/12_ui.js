@@ -746,11 +746,6 @@ function clearLyrics() {
 }
 // 初期化: back to a blank project — song (also the copy kept in this browser), settings and both histories go
 let audioNameDefault = '';
-function forgetHistory() {       // Opening another project must not carry the previous one's look (locks included) into the undo history
-  H.list = []; H.i = -1;
-  remember(); updateHist();
-}
-
 async function resetAll() {
   if (S.exporting) return;
   if (S.tap) stopTap();
@@ -1640,7 +1635,7 @@ function bind() {
   $('resetDlg').addEventListener('close', () => { if ($('resetDlg').returnValue === 'reset') resetAll(); });
   $('fileProject').addEventListener('change', async e => {
     const f = e.target.files && e.target.files[0]; if (!f) return;
-    try { S.project = mergeProject(JSON.parse(await f.text())); forgetHistory(); syncUI(); replan(); restoreFonts(); }
+    try { S.project = mergeProject(JSON.parse(await f.text())); syncUI(); replan(); restoreFonts(); }
     catch (err) { showMsg('プロジェクトを読み込めませんでした'); setTimeout(() => showMsg(null), 2500); }
     e.target.value = '';
   });
